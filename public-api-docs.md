@@ -4,7 +4,7 @@ Welcome to the Imaginer RESTful API. This API allows developers to integrate our
 
 **Base URL:**
 ```http
-https://imaginer.mirava.studio
+[redacted-url]
 ```
 All endpoints below are relative to this Base URL.
 
@@ -14,7 +14,7 @@ All API endpoints require authentication using a Bearer token. You can manage yo
 
 **Header Format:**
 ```http
-Authorization: Bearer sk_imaginer_...
+authorization: Bearer <API_KEY>
 ```
 
 ---
@@ -53,7 +53,7 @@ Retrieve a list of all currently available models and their supported configurat
 ---
 
 ### 2. Upload Reference Image
-Upload an image to be used as a reference (img2img, ControlNet, etc.) in a generation request.
+Upload an image to be used as a reference in a generation request.
 
 **Endpoint:** `POST /api/public/v1/upload`
 
@@ -62,15 +62,18 @@ Upload an image to be used as a reference (img2img, ControlNet, etc.) in a gener
 **Request Parameters:**
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `image` | `File` | Yes | The physical image file to upload. Supported formats: PNG, JPEG, WebP. Maximum file size is strictly 10MB. |
+| `image` | `File` | Yes | The physical image file to upload. Supported formats: PNG, JPEG, WebP. Maximum file size is 10MB by default, but may vary based on the current plan configuration. |
 
 **Response (200 OK):**
 ```json
 {
   "image_id": "uuid-string-here",
+  "expires_at": "2026-04-26T07:57:08.857Z",
   "message": "Image uploaded successfully. Use this image_id in the ref_image_ids array of the generate endpoint."
 }
 ```
+
+Use the returned `image_id` as a reference ID in `ref_image_ids` when calling `POST /api/public/v1/generate`. Reference images are stored temporarily. By default, a reference image expires after 24 hours, and unused uploads may be cleaned up after 60 minutes. If a reference image is expired or no longer available, the generate endpoint returns an error with code `reference_image_expired`.
 
 ---
 
@@ -84,24 +87,23 @@ Submit a new image generation task. This is an asynchronous operation.
 **Request Parameters:**
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `model_id` | `String` | **Yes** | The exact identifier of the model you want to use (e.g., `nano-banana-2`, `gpt-image-1.5`). |
+| `model_id` | `String` | **Yes** | The exact identifier of the model you want to use (e.g., `nano-banana-2`, `gpt-image-1.5`, `gpt-image-2`). |
 | `prompt` | `String` | **Yes** | The text description of the image you want to generate. Max 2000 characters. |
 | `ratio` | `String` | Optional | The aspect ratio of the generated image (e.g., `16:9`, `1:1`). Defaults to `1:1` if omitted. See the Models Reference below for allowed ratios per model. |
-| `quality` | `String` | Optional | The quality or resolution tier of the output (e.g., `4K`, `high`). Defaults to the model's lowest/base quality (e.g., `1K` or `low`) if omitted. |
+| `quality` | `String` | Optional | The quality or resolution tier of the output (e.g., `4K`, `high`). Defaults to the model's lowest/base quality (e.g., `1K` or `low`) if omitted. For GPT Image 2, `LOW`/`MEDIUM` aliases are accepted and normalized to `low`/`medium` for billing. |
 | `mode` | `String` | Optional | Specialized execution mode (e.g., `QUALITY` for GPT Image 1.5). Ignored if the model doesn't support modes. |
 | `style` | `String` | Optional | The visual style preset to apply (e.g., `cinematic`, `anime`). Some models may reject invalid styles. |
-| `ref_image_ids` | `Array<String>` | Optional | Array of UUIDs obtained from the Upload endpoint to use as reference images. Max 6 items (some models support fewer or none). |
+| `ref_image_ids` | `Array<String>` | Optional | Array of `image_id` values obtained from the Upload endpoint. Max 6 items (some models support fewer or none). |
 
 **Request Body Example:**
 ```json
 {
-  "model_id": "nano-banana-2",
-  "prompt": "A beautiful sunset over a cyberpunk city",
+  "model_id": "gpt-image-2",
+  "prompt": "Transform this reference image into an ocean fishing scene",
   "ratio": "16:9", // Optional (depends on model)
-  "quality": "4K", // Optional (depends on model)
-  "mode": "QUALITY", // Optional (depends on model)
-  "style": "cinematic", // Optional (depends on model)
-  "ref_image_ids": ["uuid-string-here"] // Optional (max 6 depending on model)
+  "quality": "medium", // Optional (depends on model)
+  "style": "dynamic", // Optional (depends on model)
+  "ref_image_ids": ["uuid-string-here"] // Optional
 }
 ```
 
@@ -126,7 +128,7 @@ If you exceed limits or lack balance, you will receive a `429 Too Many Requests`
 ---
 
 ### 4. Check Generation Status
-Poll this endpoint to check the status of your generation task and retrieve the final image URLs.
+Poll this endpoint to check the status of your generation task and retrieve the final proxied image links.
 
 **Endpoint:** `GET /api/public/v1/generate/[generation_id]`
 
@@ -134,8 +136,8 @@ Poll this endpoint to check the status of your generation task and retrieve the 
 | Field | Type | Description |
 | :--- | :--- | :--- |
 | `generation_id` | `String` | The unique UUID of your generation task. |
-| `status` | `String` | Current status of the task. Enum: `processing`, `success`, `failed`. |
-| `progress` | `Integer` | (Only when `processing`) An integer from `0` to `100` representing percentage completion. |
+| `status` | `String` | Current status of the task. Enum: `processing`, `polling`, `success`, `failed`, `cancelled`. |
+| `progress` | `Integer` | Present when `status` is `processing` or `polling`; returns an integer from `0` to `100`. Completed generations return `100`. |
 | `urls` | `Array<String>` | (Only when `success`) Array containing the final generated image URL(s) securely hosted on Tencent COS. |
 | `error` | `String` | (Only when `failed`) Detailed reason explaining why the generation failed. |
 | `model` | `String` | The `model_id` that was used for this generation. |
@@ -150,7 +152,7 @@ Poll this endpoint to check the status of your generation task and retrieve the 
   "status": "success", // 'processing', 'polling', 'failed', 'success'
   "progress": 100, // Only present when processing/polling
   "urls": [
-    "https://imaginer-1-XXXXXXXXXX.cos.ap-singapore.myqcloud.com/imaginer_nano-banana-2_20260421_XXXXXX_XXXXXXXX_0.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=XXXXXXXXXX%2F20260421%2Fap-singapore%2Fs3%2Faws4_request&X-Amz-Date=20260421T070300Z&X-Amz-Expires=86400&X-Amz-Signature=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX&X-Amz-SignedHeaders=host"
+    "[redacted-url]"
   ],
   "model": "nano-banana-2",
   "prompt": "A beautiful sunset over a cyberpunk city",
@@ -162,6 +164,38 @@ Poll this endpoint to check the status of your generation task and retrieve the 
 }
 ```
 *Note: The `urls` array is only populated when the status is `success`. If the status is `failed`, an `error` field will be provided with details.*
+
+**Processing / Polling Example:**
+```json
+{
+  "generation_id": "uuid-string-here",
+  "status": "polling",
+  "progress": 30,
+  "model": "gpt-image-2",
+  "prompt": "Transform this reference image into an ocean fishing scene",
+  "dimensions": {
+    "width": 1376,
+    "height": 768
+  },
+  "created_at": "2026-04-25T07:57:08.857Z"
+}
+```
+
+**Failed Example:**
+```json
+{
+  "generation_id": "uuid-string-here",
+  "status": "failed",
+  "error": "The generation could not be completed. Please adjust your prompt or parameters.",
+  "model": "gpt-image-2",
+  "prompt": "Transform this reference image into an ocean fishing scene",
+  "dimensions": {
+    "width": 1376,
+    "height": 768
+  },
+  "created_at": "2026-04-25T07:57:08.857Z"
+}
+```
 
 ---
 
@@ -201,14 +235,22 @@ When calling `POST /api/public/v1/generate`, you must supply a valid `model_id`.
 - **Reference Images (`ref_image_ids`)**: Supported (Max 6 images)
 - **Supported Styles (`style`)**: *(Same as Nano Banana 2)*
 
-### 3. Flux 2.0 Pro
+### 3. GPT Image 2
+- **Model ID (`model_id`)**: `gpt-image-2`
+- **Supported Ratios (`ratio`)**: `1:1`, `2:3`, `3:2`, `16:9`, `9:16`
+- **Supported Qualities (`quality`)**: `low`, `medium` (also accepts `LOW`, `MEDIUM`)
+- **Default API Quality**: `low` when omitted.
+- **Reference Images (`ref_image_ids`)**: Supported (Max 6 images)
+- **Supported Styles (`style`)**: `dynamic`, `creative`, `fashion`, `illustration`, `3d-render`, `acrylic`, `game-concept`, `graphic-design-2d`, `graphic-design-3d`, `pro-b-w-photography`, `pro-color-photography`, `pro-film-photography`, `ray-traced`, `stock-photo`, `watercolor`, `none`
+
+### 4. Flux 2.0 Pro
 - **Model ID (`model_id`)**: `flux-pro-2.0`
 - **Supported Ratios (`ratio`)**: `1:1`, `2:3`, `3:2`, `16:9`, `9:16`
 - **Supported Qualities (`quality`)**: Not applicable
 - **Reference Images (`ref_image_ids`)**: Supported (Max 4 images)
 - **Supported Styles (`style`)**: *(Same as Nano Banana 2)*
 
-### 4. Ideogram 3.0
+### 5. Ideogram 3.0
 - **Model ID (`model_id`)**: `ideogram-v3.0`
 - **Supported Ratios (`ratio`)**: `1:1`, `3:4`, `4:3`
 - **Supported Qualities (`quality`)**: Not applicable
@@ -216,7 +258,7 @@ When calling `POST /api/public/v1/generate`, you must supply a valid `model_id`.
 - **Supported Styles (`style`)**: 
   `dynamic`, `creative`, `fashion`, `cinematic`, `portrait`, `stock-photo`, `vibrant`
 
-### 5. Lucid Origin
+### 6. Lucid Origin
 - **Model ID (`model_id`)**: `lucid-origin`
 - **Supported Ratios (`ratio`)**: `1:1`, `3:4`, `4:3`, `2:3`, `3:2`, `9:16`, `16:9`
 - **Supported Qualities (`quality`)**: Not applicable
@@ -224,7 +266,7 @@ When calling `POST /api/public/v1/generate`, you must supply a valid `model_id`.
 - **Supported Styles (`style`)**: 
   `dynamic`, `creative`, `fashion`, `portrait`, `cinematic`, `cinematic-close-up`, `bokeh`, `film`, `food`, `hdr`, `long-exposure`, `macro`, `minimalist`, `monochrome`, `moody`, `neutral`, `retro`, `stock-photo`, `unprocessed`, `vibrant`, `none`
 
-### 6. Seedream 4.5
+### 7. Seedream 4.5
 - **Model ID (`model_id`)**: `seedream-4.5`
 - **Supported Ratios (`ratio`)**: `1:1`, `2:3`, `4:5`, `16:9`, `21:9`, `2:1`
 - **Supported Qualities (`quality`)**: Not applicable

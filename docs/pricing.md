@@ -23,6 +23,8 @@ When on the Credits plan, each request deducts IDR from your balance. The table 
 | **GPT IMAGE 1.5** | `HIGH` | 3 | 3 | 175 |
 | **GPT IMAGE 1.5** | `MEDIUM` | 2 | 2 | 125 |
 | **GPT IMAGE 1.5** | `LOW` | 1 | 1 | 75 |
+| **GPT IMAGE 2** | `MEDIUM` | 3 | 3 | 200 |
+| **GPT IMAGE 2** | `LOW` | 1 | 1 | 75 |
 | **IDEOGRAM 3.0** | `DEFAULT` | 1 | 1 | 75 |
 | **LUCID ORIGIN** | `DEFAULT` | 1 | 1 | 75 |
 | **NANO BANANA 2** | `4K` | 3 | 3 | 175 |
