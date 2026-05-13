@@ -31,3 +31,4 @@ When on the Credits plan, each request deducts IDR from your balance. The table 
 | **NANO BANANA 2** | `2K` | 2 | 2 | 125 |
 | **NANO BANANA 2** | `1K` | 1 | 1 | 75 |
 | **SEEDREAM 4.5** | `DEFAULT` | 1 | 1 | 75 |
+| **RECRAFT V4** | `DEFAULT` | 3 | 3 | 200 |

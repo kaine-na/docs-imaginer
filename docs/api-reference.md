@@ -289,3 +289,11 @@ When calling `POST /api/public/v1/generate`, you must supply a valid `model_id`.
 - **Reference Images (`ref_image_ids`)**: Supported (Max 6 images)
 - **Supported Styles (`style`)**: 
   `dynamic`, `creative`, `fashion`, `cinematic`, `portrait`, `stock-photo`, `vibrant`
+
+### 8. Recraft V4
+- **Model ID (`model_id`)**: `recraft-v4`
+- **Supported Ratios (`ratio`)**: `1:1`, `3:2`, `2:3`, `4:3`, `3:4`, `5:4`, `4:5`, `16:9`, `9:16`
+- **Supported Qualities (`quality`)**: Not applicable (single quality tier)
+- **Reference Images (`ref_image_ids`)**: **NOT SUPPORTED**
+- **Supported Styles (`style`)**: **NOT SUPPORTED** — model does not use style presets.
+- **Notes**: Prompt enhancement is automatically disabled for precise control. Max prompt length is 1200 characters. Strong text rendering capabilities.

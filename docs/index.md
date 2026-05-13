@@ -19,5 +19,5 @@ features:
   - title: Auto-Healing JSON
     details: The API automatically repairs missing escapes or malformed JSON prompts so generations never fail abruptly.
   - title: Multiple AI Models
-    details: Access Nano Banana 2, GPT Image 2, Flux 2.0 Pro, Ideogram 3.0, and more via one universal endpoint.
+    details: Access Nano Banana 2, GPT Image 2, Flux 2.0 Pro, Ideogram 3.0, Recraft V4, and more via one universal endpoint.
 ---
